@@ -96,7 +96,7 @@ body.show-ignis #randomize,body.show-ignis #reset,body.show-ignis #download-all{
 <style id="ignis-customizer-css">
 .ignis-customizer{border:1px solid rgba(255,120,62,.45);background:linear-gradient(145deg,rgba(77,34,20,.25),rgba(25,24,31,.95));border-radius:14px;padding:14px;margin:12px 0}
 .ignis-customizer[hidden]{display:none!important}.ignis-customizer-title{font-size:12px;font-weight:900;letter-spacing:1.5px;color:#ffab78;margin:0 0 12px}
-.ignis-customizer .form-row{grid-template-columns:105px 1fr}.ignis-customizer-hint{font-size:11px;line-height:1.5;color:#c0b8b4;margin:10px 0 0}
+.ignis-customizer .form-row{grid-template-columns:105px 1fr}.ignis-customizer-hint{font-size:11px;line-height:1.5;color:#c0b8b4;margin:10px 0 0}.ignis-slot-note{font-size:11px;line-height:1.5;color:#d1b6a8;margin:0 0 12px}
 body.show-ignis #wardrobe-form .form-divider,body.show-ignis #wardrobe-form .form-row:not(:has(#version)){display:grid}
 body.show-ignis #wardrobe-form .form-row:has(#hair),body.show-ignis #wardrobe-form .form-row:has(#top),body.show-ignis #wardrobe-form .form-row:has(#bottom),body.show-ignis #wardrobe-form .form-row:has(#shoes),body.show-ignis #wardrobe-form .form-row:has(#mask),body.show-ignis #wardrobe-form .form-row:has(#face),body.show-ignis #wardrobe-form .form-row:has(#action){display:none}
 body.show-ignis #ignis-customizer{display:block}
@@ -165,6 +165,14 @@ body.show-ignis #ignis-customizer{display:block}
           <section id="ignis-customizer" class="ignis-customizer" hidden aria-label="Tùy chỉnh Ignis">
             <p class="ignis-customizer-title">🔥 PHỐI ĐỒ IGNIS</p>
             <div class="form-row"><label for="ignis-outfit">Bộ trang phục</label><div class="select-wrap"><select id="ignis-outfit"><option value="default">Trang phục mặc định</option><option value="ember">Hỏa diệm</option><option value="inferno">Inferno</option><option value="custom">Tùy chỉnh / bundle riêng</option></select></div></div>
+            <p class="ignis-slot-note">Chọn từng phần bên dưới. “Tự động” giữ theo bundle; các món từ danh mục website chỉ lưu vào cấu hình, chưa được ánh xạ vào tài nguyên Ignis trong game.</p>
+            <div class="form-row"><label for="ignis-head">Đầu</label><div class="select-wrap"><select id="ignis-head" data-source="hair"><option value="automatic">Tự động (theo bundle)</option><option value="bundle-default">Mặc định của bundle</option></select></div></div>
+            <div class="form-row"><label for="ignis-mask">Mặt nạ</label><div class="select-wrap"><select id="ignis-mask" data-source="mask"><option value="automatic">Tự động (theo bundle)</option><option value="bundle-default">Mặc định của bundle</option><option value="none">Không dùng mặt nạ</option></select></div></div>
+            <div class="form-row"><label for="ignis-face">Mặt</label><div class="select-wrap"><select id="ignis-face" data-source="face"><option value="automatic">Tự động (theo bundle)</option><option value="bundle-default">Mặc định của bundle</option><option value="none">Không thay đổi</option></select></div></div>
+            <div class="form-row"><label for="ignis-top">Áo</label><div class="select-wrap"><select id="ignis-top" data-source="top"><option value="automatic">Tự động (theo bundle)</option><option value="bundle-default">Mặc định của bundle</option></select></div></div>
+            <div class="form-row"><label for="ignis-bottom">Quần</label><div class="select-wrap"><select id="ignis-bottom" data-source="bottom"><option value="automatic">Tự động (theo bundle)</option><option value="bundle-default">Mặc định của bundle</option></select></div></div>
+            <div class="form-row"><label for="ignis-shoes">Dép / giày</label><div class="select-wrap"><select id="ignis-shoes" data-source="shoes"><option value="automatic">Tự động (theo bundle)</option><option value="bundle-default">Mặc định của bundle</option></select></div></div>
+            <div class="form-row"><label for="ignis-auto">Aotumatich</label><div class="select-wrap"><select id="ignis-auto"><option value="on">Bật tự động</option><option value="off">Tắt tự động</option></select></div></div>
             <div class="form-row"><label for="ignis-vfx">Hiệu ứng VFX</label><div class="select-wrap"><select id="ignis-vfx"><option value="on">Bật VFX lửa</option><option value="off">Tắt VFX</option></select></div></div>
             <div class="form-row"><label for="ignis-vfx-part">Phần có VFX</label><div class="select-wrap"><select id="ignis-vfx-part"><option value="all">Toàn thân / hiệu ứng tổng</option><option value="aura">Hào quang</option><option value="hands">Tay</option><option value="trail">Vệt lửa</option><option value="none">Không phần nào</option></select></div></div>
             <button type="button" class="download" id="ignis-config-download">Tạo file cấu hình lựa chọn (.json)</button>
@@ -597,7 +605,25 @@ self.onmessage=async event=>{
  const outfit=document.getElementById('ignis-outfit');
  const configButton=document.getElementById('ignis-config-download');
  const status=document.getElementById('status');
+ const slotIds=['ignis-head','ignis-mask','ignis-face','ignis-top','ignis-bottom','ignis-shoes'];
+ function populateIgnisSlots(){
+   slotIds.forEach(id=>{
+     const target=document.getElementById(id); if(!target || target.dataset.catalogLoaded==='yes') return;
+     const sourceId=target.dataset.source; const source=document.getElementById(sourceId);
+     if(!source || source.options.length<1) return;
+     const preserved=target.value;
+     const known=new Set(Array.from(target.options).map(o=>o.value));
+     Array.from(source.options).forEach(opt=>{
+       if(!opt.value || known.has(opt.value)) return;
+       const copy=document.createElement('option'); copy.value=opt.value;
+       copy.textContent=opt.textContent+' · danh mục website';
+       target.appendChild(copy); known.add(opt.value);
+     });
+     target.value=preserved; target.dataset.catalogLoaded='yes';
+   });
+ }
  function syncIgnis(){
+   populateIgnisSlots();
    const isIgnis=body.classList.contains('show-ignis');
    if(customizer) customizer.hidden=!isIgnis;
    const enabled=isIgnis && vfx && vfx.value==='on' && part && part.value!=='none';
@@ -615,6 +641,8 @@ self.onmessage=async event=>{
      character:'ignis',
      platform,
      outfit:outfit?.value||'default',
+     clothing:Object.fromEntries(slotIds.map(id=>[id.replace('ignis-',''),document.getElementById(id)?.value||'automatic'])),
+     automatic:document.getElementById('ignis-auto')?.value==='on',
      vfx:{enabled:vfx?.value==='on' && part?.value!=='none',part:part?.value||'all'},
      bundleFile:platform==='ios-normal'?'assets/mods/ignis-fft-ios.bundle':platform==='android-normal'?'assets/mods/ignis-android.bundle':null,
      note:'Selection manifest only. It does not modify UnityFS assets or directly install/apply to Free Fire.'
